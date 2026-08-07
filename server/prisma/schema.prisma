@@ -1,0 +1,225 @@
+// Prisma schema — Node.js port of the SQLAlchemy models in Backend/app/models.
+// Table names and column names are mapped (@@map / @map) to match the original
+// Postgres schema created by Alembic, so this can point at the same database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ClientMessageStatus {
+  pending
+  approved
+  rejected
+}
+
+model Role {
+  id          Int    @id @default(autoincrement())
+  name        String @unique @db.VarChar(50)
+  description String? @db.VarChar(255)
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id               String   @id @default(uuid()) @db.Uuid
+  fullName         String   @map("full_name") @db.VarChar(100)
+  email            String   @db.VarChar(50)
+  hashedPassword   String   @map("hashed_password") @db.VarChar(255)
+  roleId           Int      @map("role_id")
+  isActive         Boolean  @default(true) @map("is_active")
+  clientMessageId  String?  @map("client_message_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  role          Role           @relation(fields: [roleId], references: [id])
+  linkedEnquiry ClientMessage? @relation("UserPrimaryEnquiry", fields: [clientMessageId], references: [id])
+  services      UserService[]
+
+  approvedMessages ClientMessage[] @relation("ApprovedBy")
+  submittedMessages ClientMessage[] @relation("SubmittedBy")
+
+  @@map("users")
+}
+
+model ClientMessage {
+  id                 String              @id @default(uuid()) @db.Uuid
+  fullName           String              @map("full_name") @db.VarChar(100)
+  email              String              @db.VarChar(100)
+  categoryId         String              @map("category_id") @db.Uuid
+  brief              String              @db.Text
+  isRead             Boolean             @default(false) @map("is_read")
+  clientUserId       String?             @map("client_user_id") @db.Uuid
+  status             ClientMessageStatus @default(pending)
+  approvedAt         DateTime?           @map("approved_at") @db.Timestamptz
+  approvedBy         String?             @map("approved_by") @db.Uuid
+  rejectionReason    String?             @map("rejection_reason") @db.Text
+  generatedEmail     String?             @map("generated_email") @db.VarChar(100)
+  generatedPassword  String?             @map("generated_password") @db.VarChar(100)
+  credentialsSentAt  DateTime?           @map("credentials_sent_at") @db.Timestamptz
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  category  EnquiryCategory @relation(fields: [categoryId], references: [id])
+  approver  User?           @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  clientUser User?          @relation("SubmittedBy", fields: [clientUserId], references: [id])
+
+  // Inverse of User.linkedEnquiry (primary portal account created from this enquiry)
+  primaryAccounts User[] @relation("UserPrimaryEnquiry")
+
+  userServices    UserService[]
+  portalDashboard PortalDashboard?
+
+  @@map("client_messages")
+}
+
+model ContactUs {
+  id            String   @id @default(uuid()) @db.Uuid
+  fullName      String   @map("full_name") @db.VarChar(100)
+  email         String   @db.VarChar(50)
+  categoryId    String   @map("category_id") @db.Uuid
+  whatyouneed   String   @db.VarChar(255)
+  brief         String   @db.VarChar(500)
+  isRead        Boolean  @default(false) @map("is_read")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  category EnquiryCategory @relation(fields: [categoryId], references: [id])
+
+  @@map("contactus")
+}
+
+model GeneralContactUs {
+  id        String   @id @default(uuid()) @db.Uuid
+  fullName  String   @map("full_name") @db.VarChar(100)
+  email     String   @db.VarChar(50)
+  brief     String   @db.VarChar(500)
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("generalcontactus")
+}
+
+model EnquiryCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+  formType    String   @map("form_type") @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Int      @default(1) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  clientMessages ClientMessage[]
+  contactMessages ContactUs[]
+
+  @@index([formType])
+  @@map("enquiry_categories")
+}
+
+model PortalDashboard {
+  id               String   @id @default(uuid()) @db.Uuid
+  clientMessageId  String   @unique @map("client_message_id") @db.Uuid
+  healthScore      Int      @default(0) @map("health_score")
+  healthComponents Json     @default("{}") @map("health_components") @db.JsonB
+  timeline         Json     @default("[]") @db.JsonB
+  evaluationData   Json     @default("{}") @map("evaluation_data") @db.JsonB
+  managementData   Json     @default("{}") @map("management_data") @db.JsonB
+  marketplaceData  Json     @default("{}") @map("marketplace_data") @db.JsonB
+  investmentData   Json     @default("{}") @map("investment_data") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  clientMessage ClientMessage @relation(fields: [clientMessageId], references: [id])
+  alerts        PortalAlert[]
+  actions       PortalAction[]
+  messages      PortalMessage[]
+
+  @@map("portal_dashboards")
+}
+
+model PortalAlert {
+  id          String   @id @default(uuid()) @db.Uuid
+  dashboardId String   @map("dashboard_id") @db.Uuid
+  severity    String   @default("info") @db.VarChar(20)
+  title       String   @db.VarChar(200)
+  message     String   @default("") @db.VarChar(500)
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  dashboard PortalDashboard @relation(fields: [dashboardId], references: [id])
+
+  @@index([dashboardId])
+  @@map("portal_alerts")
+}
+
+model PortalMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  dashboardId String   @map("dashboard_id") @db.Uuid
+  sender      String   @default("client") @db.VarChar(20)
+  subject     String   @default("") @db.VarChar(300)
+  body        String   @db.Text
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  dashboard PortalDashboard @relation(fields: [dashboardId], references: [id])
+
+  @@index([dashboardId])
+  @@map("portal_messages")
+}
+
+model PortalAction {
+  id          String    @id @default(uuid()) @db.Uuid
+  dashboardId String    @map("dashboard_id") @db.Uuid
+  title       String    @db.VarChar(300)
+  assignee    String    @default("") @db.VarChar(120)
+  column      String    @default("todo") @db.VarChar(40)
+  priority    String    @default("medium") @db.VarChar(20)
+  dueDate     DateTime? @map("due_date") @db.Timestamptz
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  dashboard PortalDashboard @relation(fields: [dashboardId], references: [id])
+
+  @@index([dashboardId])
+  @@map("portal_actions")
+}
+
+model SystemLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  level       String   @db.VarChar(20)
+  message     String   @db.Text
+  source      String   @db.VarChar(100)
+  userId      String?  @map("user_id") @db.Uuid
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  userAgent   String?  @map("user_agent") @db.Text
+  logMetadata String?  @map("log_metadata") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("system_logs")
+}
+
+model UserService {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  clientMessageId String   @unique @map("client_message_id") @db.Uuid
+  portalType      String   @map("portal_type") @db.VarChar(50)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user          User          @relation(fields: [userId], references: [id])
+  clientMessage ClientMessage @relation(fields: [clientMessageId], references: [id])
+
+  @@index([userId])
+  @@map("user_portal_services")
+}
