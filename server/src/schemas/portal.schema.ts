@@ -17,6 +17,13 @@ export const PortalProfileUpdateSchema = z.object({
 });
 export type PortalProfileUpdate = z.infer<typeof PortalProfileUpdateSchema>;
 
+export const AdminProfileUpdateSchema = z.object({
+  full_name: z.string().min(2).optional().nullable(),
+  email: z.string().email().optional().nullable(),
+  password: z.string().min(8).optional().nullable(),
+});
+export type AdminProfileUpdate = z.infer<typeof AdminProfileUpdateSchema>;
+
 export const AdminPortalMessageCreateSchema = z.object({
   client_id: z.string().uuid(),
   subject: z.string(),

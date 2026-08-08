@@ -14,8 +14,7 @@ import Reveal from "./motion/Reveal";
 import { RevealGroup, RevealItem } from "./motion/RevealGroup";
 import Parallax from "./motion/Parallax";
 
-const THESIS_IMAGE =
-  "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80";
+const THESIS_IMAGE = "/images/about-thesis.jpg";
 
 const STEP_ICONS = [Target, Settings2, Megaphone, Landmark];
 const VALUE_ICONS = [ShieldCheck, Wand2, ClipboardCheck];

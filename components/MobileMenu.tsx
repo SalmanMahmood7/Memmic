@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { NAV_LINKS } from "@/data/nav";
 import RollButton from "./RollButton";
 
@@ -13,6 +14,7 @@ export default function MobileMenu({
   open: boolean;
   onClose: () => void;
 }) {
+  const pathname = usePathname();
   const [openLabel, setOpenLabel] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,15 +40,22 @@ export default function MobileMenu({
         }`}
       >
         <nav className="mb-8 flex flex-col gap-1">
-          {NAV_LINKS.map((link) =>
-            link.children ? (
+          {NAV_LINKS.map((link) => {
+            const isParentActive = link.children
+              ? pathname === link.to || pathname.startsWith(`${link.to}/`)
+              : pathname === link.to;
+
+            return link.children ? (
               <div key={link.label}>
                 <div className="flex items-center justify-between">
                   <Link
                     href={link.to}
                     onClick={onClose}
-                    className="py-1 text-[28px] font-medium text-gray-900 sm:text-[32px]"
+                    className="flex items-center gap-2.5 py-1 text-[28px] font-medium text-gray-900 sm:text-[32px]"
                   >
+                    {isParentActive && (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-gray-900" />
+                    )}
                     {link.label}
                   </Link>
                   <button
@@ -81,7 +90,11 @@ export default function MobileMenu({
                         key={child.label}
                         href={child.to}
                         onClick={onClose}
-                        className="py-1.5 text-[17px] text-gray-500 transition-colors duration-300 hover:text-gray-900"
+                        className={`py-1.5 text-[17px] transition-colors duration-300 hover:text-gray-900 ${
+                          pathname === child.to
+                            ? "text-gray-900"
+                            : "text-gray-500"
+                        }`}
                       >
                         {child.label}
                       </Link>
@@ -94,12 +107,15 @@ export default function MobileMenu({
                 key={link.label}
                 href={link.to}
                 onClick={onClose}
-                className="py-1 text-[28px] font-medium text-gray-900 sm:text-[32px]"
+                className="flex items-center gap-2.5 py-1 text-[28px] font-medium text-gray-900 sm:text-[32px]"
               >
+                {isParentActive && (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-gray-900" />
+                )}
                 {link.label}
               </Link>
-            ),
-          )}
+            );
+          })}
         </nav>
 
         <RollButton

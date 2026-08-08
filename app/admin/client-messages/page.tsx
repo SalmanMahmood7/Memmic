@@ -11,6 +11,8 @@ import {
   listClientMessages,
   markEnquiryAsRead,
   rejectClientMessage,
+  sendClientMessageCredentials,
+  updateClientMessageCredentials,
 } from "@/lib/api";
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
@@ -21,6 +23,13 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   approved: "Approved",
   rejected: "Rejected",
+};
+
+const APPLICANT_TYPE_LABELS: Record<string, string> = {
+  COMPANY: "Company / Venture",
+  INDIVIDUAL: "Individual",
+  INVESTOR: "Investor",
+  OTHER: "Other",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -47,6 +56,10 @@ export default function ClientEnquiriesPage() {
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [credEmail, setCredEmail] = useState("");
+  const [credPassword, setCredPassword] = useState("");
+  const [credLoading, setCredLoading] = useState(false);
+  const [sendLoading, setSendLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [filters, setFilters] = useState({ status: "" });
 
@@ -103,6 +116,8 @@ export default function ClientEnquiriesPage() {
   const handleView = (m: ClientMessageRecord) => {
     setSelected(m);
     setRejectReason("");
+    setCredEmail(m.generated_email ?? "");
+    setCredPassword(m.generated_password ?? "");
     setShowDetail(true);
     if (!m.is_read && token) {
       markEnquiryAsRead(token, m.id).then(() => {
@@ -128,13 +143,62 @@ export default function ClientEnquiriesPage() {
     try {
       const updated = await approveClientMessage(token, selected.id, sendCredentials);
       setSelected(updated);
+      setCredEmail(updated.generated_email ?? "");
+      setCredPassword(updated.generated_password ?? "");
       setMessages(prev => prev.map(m => (m.id === updated.id ? updated : m)));
-      toast.success(updated.generated_email ? "Enquiry approved. Credentials generated." : "Enquiry approved.");
+      toast.success(
+        updated.generated_email
+          ? "Enquiry approved. Credentials generated — review and send them below."
+          : "Enquiry approved."
+      );
       fetchStats();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to approve enquiry");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSaveCredentials = async () => {
+    if (!token || !selected) return;
+    if (!credEmail.trim() || !credPassword.trim()) {
+      toast.error("Email and password cannot be empty.");
+      return;
+    }
+    if (credPassword.trim().length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+    setCredLoading(true);
+    try {
+      const updated = await updateClientMessageCredentials(token, selected.id, {
+        email: credEmail.trim(),
+        password: credPassword.trim(),
+      });
+      setSelected(updated);
+      setCredEmail(updated.generated_email ?? "");
+      setCredPassword(updated.generated_password ?? "");
+      setMessages(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+      toast.success("Credentials updated.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update credentials");
+    } finally {
+      setCredLoading(false);
+    }
+  };
+
+  const handleSendCredentials = async () => {
+    if (!token || !selected) return;
+    setSendLoading(true);
+    try {
+      const updated = await sendClientMessageCredentials(token, selected.id);
+      setSelected(updated);
+      setMessages(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+      toast.success("Credentials sent to the client.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send credentials");
+    } finally {
+      setSendLoading(false);
     }
   };
 
@@ -320,20 +384,82 @@ export default function ClientEnquiriesPage() {
                     </div>
                   </div>
 
+                  {(selected.applicant_type || selected.related_category || selected.company_name) && (
+                    <div className="grid grid-cols-3 gap-4">
+                      {selected.applicant_type && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Applying as</label>
+                          <p className="text-ink mt-1 text-sm">{APPLICANT_TYPE_LABELS[selected.applicant_type] ?? selected.applicant_type}</p>
+                        </div>
+                      )}
+                      {selected.related_category && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Category</label>
+                          <p className="text-ink mt-1 text-sm">{selected.related_category}</p>
+                        </div>
+                      )}
+                      {selected.company_name && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Company / Venture</label>
+                          <p className="text-ink mt-1 text-sm">{selected.company_name}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {selected.generated_email && (
                     <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-900">
-                      <label className="text-xs font-medium text-green-700 dark:text-green-400">Generated Credentials</label>
-                      <p className="text-ink mt-1 text-sm">Email: <span className="font-mono">{selected.generated_email}</span></p>
-                      <p className="text-ink mt-1 text-sm">Password: <span className="font-mono">{selected.generated_password}</span></p>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-green-700 dark:text-green-400">Generated Credentials</label>
+                        {selected.credentials_sent_at ? (
+                          <span className="text-xs text-green-600 dark:text-green-400">
+                            Sent {format(new Date(selected.credentials_sent_at), "MMM d, yyyy h:mm a")}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium text-yellow-700 dark:text-yellow-400">Not sent yet</span>
+                        )}
+                      </div>
+
+                      <div className="mt-2 grid gap-2">
+                        <div>
+                          <label className="text-[11px] text-muted-foreground">Portal email</label>
+                          <input
+                            value={credEmail}
+                            onChange={e => setCredEmail(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-muted-foreground">Portal password</label>
+                          <input
+                            value={credPassword}
+                            onChange={e => setCredPassword(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={handleSaveCredentials}
+                          disabled={credLoading}
+                          className="px-3 py-1.5 text-xs font-medium text-ink bg-white border border-border hover:bg-gray-50 rounded transition-colors disabled:opacity-50"
+                        >
+                          {credLoading ? "Saving…" : "Save changes"}
+                        </button>
+                        <button
+                          onClick={handleSendCredentials}
+                          disabled={sendLoading}
+                          className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors disabled:opacity-50"
+                        >
+                          {sendLoading ? "Sending…" : selected.credentials_sent_at ? "Resend credentials" : "Send credentials to client"}
+                        </button>
+                      </div>
+
                       {selected.client_account_email && (
-                        <p className="text-ink mt-1 text-sm">
+                        <p className="text-ink mt-3 text-sm">
                           Portal account: <span className="font-mono">{selected.client_account_email}</span>{" "}
                           <span className="text-xs text-green-600 dark:text-green-400">(active)</span>
-                        </p>
-                      )}
-                      {selected.credentials_sent_at && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Credentials issued {format(new Date(selected.credentials_sent_at), "MMM d, yyyy h:mm a")}
                         </p>
                       )}
                     </div>

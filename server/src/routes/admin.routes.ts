@@ -18,6 +18,7 @@ function toJson(value: unknown): Prisma.InputJsonValue {
 
 import {
   ClientMessageApproveSchema,
+  ClientMessageCredentialsUpdateSchema,
   ClientMessageRejectSchema,
 } from "../schemas/clientMessage.schema";
 import { ClientAccountCreateSchema } from "../schemas/clientAccount.schema";
@@ -29,6 +30,7 @@ import { SystemLogCreateSchema } from "../schemas/systemLog.schema";
 import {
   AdminPortalMessageCreateSchema,
   AdminDashboardHealthUpdateSchema,
+  AdminProfileUpdateSchema,
   PortalStageUpsertListSchema,
   PortalStageUpdateSchema,
   PortalAlertCreateSchema,
@@ -79,6 +81,38 @@ router.get(
   requireRoles("Admin"),
   asyncHandler(async (req, res) => {
     res.json(serializeUserMe(req.currentUser!));
+  })
+);
+
+router.patch(
+  "/me",
+  requireRoles("Admin"),
+  asyncHandler(async (req, res) => {
+    const currentUser = req.currentUser!;
+    const payload = AdminProfileUpdateSchema.parse(req.body ?? {});
+
+    if (!payload.full_name && !payload.email && !payload.password) {
+      throw new ApiError(400, "Provide at least one field to update");
+    }
+
+    if (payload.email && payload.email.toLowerCase() !== currentUser.email.toLowerCase()) {
+      const clash = await prisma.user.findFirst({
+        where: { email: { equals: payload.email, mode: "insensitive" }, id: { not: currentUser.id } },
+      });
+      if (clash) throw new ApiError(409, "That email is already in use by another account");
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: currentUser.id },
+      data: {
+        ...(payload.full_name ? { fullName: payload.full_name.trim() } : {}),
+        ...(payload.email ? { email: payload.email } : {}),
+        ...(payload.password ? { hashedPassword: await hashPassword(payload.password) } : {}),
+      },
+      include: { role: true },
+    });
+
+    res.json(serializeUserMe(updated));
   })
 );
 
@@ -702,11 +736,13 @@ router.post(
 
       message = await prisma.clientMessage.update({
         where: { id: message.id },
-        data: { generatedEmail: email, generatedPassword: password, credentialsSentAt: new Date() },
+        data: { generatedEmail: email, generatedPassword: password },
         include: { category: true },
       });
 
-      await sendCredentialsEmail(message.email, email, password, message.fullName);
+      // Credentials are generated but intentionally not emailed yet — the admin
+      // reviews/edits them via PATCH .../credentials, then explicitly triggers
+      // POST .../send-credentials once they're ready to hand off to the client.
     }
 
     // Seed the per-service dashboard whenever a service was linked.
@@ -726,6 +762,88 @@ router.post(
     }
 
     const [enriched] = await enrichEnquiries([message]);
+    res.json(enriched);
+  })
+);
+
+router.patch(
+  "/client-messages/:messageId/credentials",
+  requireRoles("Admin"),
+  asyncHandler(async (req, res) => {
+    const payload = ClientMessageCredentialsUpdateSchema.parse(req.body ?? {});
+
+    const message = await prisma.clientMessage.findUnique({
+      where: { id: req.params.messageId },
+      include: { category: true },
+    });
+    if (!message) throw new ApiError(404, "Message not found");
+    if (!message.generatedEmail || !message.generatedPassword) {
+      throw new ApiError(400, "This enquiry has no generated credentials to edit yet");
+    }
+    if (!payload.email && !payload.password) {
+      throw new ApiError(400, "Provide an email and/or password to update");
+    }
+
+    const linkedUser = await prisma.user.findFirst({
+      where: { clientMessageId: message.id },
+    });
+
+    if (payload.email && payload.email.toLowerCase() !== message.generatedEmail.toLowerCase()) {
+      const clash = await prisma.user.findFirst({
+        where: {
+          email: { equals: payload.email, mode: "insensitive" },
+          ...(linkedUser ? { id: { not: linkedUser.id } } : {}),
+        },
+      });
+      if (clash) throw new ApiError(409, "That email is already in use by another account");
+    }
+
+    const updated = await prisma.clientMessage.update({
+      where: { id: message.id },
+      data: {
+        generatedEmail: payload.email ?? message.generatedEmail,
+        generatedPassword: payload.password ?? message.generatedPassword,
+      },
+      include: { category: true },
+    });
+
+    if (linkedUser) {
+      await prisma.user.update({
+        where: { id: linkedUser.id },
+        data: {
+          ...(payload.email ? { email: payload.email } : {}),
+          ...(payload.password ? { hashedPassword: await hashPassword(payload.password) } : {}),
+        },
+      });
+    }
+
+    const [enriched] = await enrichEnquiries([updated]);
+    res.json(enriched);
+  })
+);
+
+router.post(
+  "/client-messages/:messageId/send-credentials",
+  requireRoles("Admin"),
+  asyncHandler(async (req, res) => {
+    const message = await prisma.clientMessage.findUnique({
+      where: { id: req.params.messageId },
+      include: { category: true },
+    });
+    if (!message) throw new ApiError(404, "Message not found");
+    if (!message.generatedEmail || !message.generatedPassword) {
+      throw new ApiError(400, "This enquiry has no generated credentials to send yet");
+    }
+
+    await sendCredentialsEmail(message.email, message.generatedEmail, message.generatedPassword, message.fullName);
+
+    const updated = await prisma.clientMessage.update({
+      where: { id: message.id },
+      data: { credentialsSentAt: new Date() },
+      include: { category: true },
+    });
+
+    const [enriched] = await enrichEnquiries([updated]);
     res.json(enriched);
   })
 );

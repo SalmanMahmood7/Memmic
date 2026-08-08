@@ -9,6 +9,7 @@ import { sendNotificationEmail } from "../services/email";
 import { seedPortalDashboard as runSeed } from "../services/portalSeed";
 import {
   ContactSubmissionRequestSchema,
+  EnquirySubmissionRequestSchema,
   GeneralContactSubmissionRequestSchema,
 } from "../schemas/contact.schema";
 import {
@@ -84,7 +85,7 @@ router.post(
 router.post(
   "/enquiry",
   asyncHandler(async (req, res) => {
-    const payload = ContactSubmissionRequestSchema.parse(req.body);
+    const payload = EnquirySubmissionRequestSchema.parse(req.body);
 
     const category = await prisma.enquiryCategory.findFirst({
       where: { id: payload.category_id, isActive: 1 },
@@ -97,6 +98,9 @@ router.post(
         email: payload.email,
         categoryId: payload.category_id,
         brief: payload.brief,
+        applicantType: payload.applicant_type,
+        relatedCategory: payload.related_category,
+        companyName: payload.company_name,
         status: ClientMessageStatus.pending,
       },
     });

@@ -15,15 +15,22 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LogOutIcon, SettingsIcon, UserIcon } from "./icons";
 import { useAuth } from "@/context/AuthContext";
-import { ApiError, getUserProfile, UserMe } from "@/lib/api";
+import { ApiError, getClientPortalProfile, getUserProfile } from "@/lib/api";
+
+const PORTAL_ROLES = ["evaluation_client", "investment_client", "marketplace_client", "management_client"];
 
 export function UserInfo() {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
-  const { token, setToken } = useAuth();
+  const { token, role, setToken } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserMe | null>(null);
+  const [userProfile, setUserProfile] = useState<{ full_name: string; email: string } | null>(null);
   const [profileError, setProfileError] = useState("");
+
+  const normalizedRole = (role ?? "").toLowerCase();
+  const isPortalUser = PORTAL_ROLES.includes(normalizedRole);
+  const isAdmin = normalizedRole === "admin";
+  const settingsHref = isPortalUser ? `/portal/${normalizedRole.replace("_client", "")}/settings` : "/admin/profile";
 
   async function handleLogout() {
     setIsOpen(false);
@@ -42,13 +49,23 @@ export function UserInfo() {
 
   useEffect(() => {
     if (!token) {
-      // setLoading(false);
       return;
     }
 
-    getUserProfile(token)
+    const request = isPortalUser
+      ? getClientPortalProfile(token)
+      : isAdmin
+        ? getUserProfile(token)
+        : null;
+
+    if (!request) {
+      setLoading(false);
+      return;
+    }
+
+    request
       .then((profile) => {
-        setUserProfile(profile);
+        setUserProfile({ full_name: profile.full_name, email: profile.email });
         setProfileError("");
       })
       .catch((err) => {
@@ -57,7 +74,7 @@ export function UserInfo() {
       .finally(() => {
         setLoading(false);
       });
-  }, [token]);
+  }, [token, isPortalUser, isAdmin]);
 
 
   if (loading) {
@@ -158,7 +175,7 @@ export function UserInfo() {
 
         <div className="p-2 text-base text-[#4B5563] *:cursor-pointer dark:text-dark-6">
           <Link
-            href={"/admin/profile"}
+            href={settingsHref}
             onClick={() => setIsOpen(false)}
             className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.25 ring-primary outline-0 hover:bg-gray-2 hover:text-dark focus-visible:ring-1 dark:hover:bg-dark-3 dark:hover:text-white"
           >
@@ -168,7 +185,7 @@ export function UserInfo() {
           </Link>
 
           <Link
-            href={"/pages/settings"}
+            href={settingsHref}
             onClick={() => setIsOpen(false)}
             className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.25 ring-primary outline-0 hover:bg-gray-2 hover:text-dark focus-visible:ring-1 dark:hover:bg-dark-3 dark:hover:text-white"
           >

@@ -60,6 +60,9 @@ model ClientMessage {
   approvedAt         DateTime?           @map("approved_at") @db.Timestamptz
   approvedBy         String?             @map("approved_by") @db.Uuid
   rejectionReason    String?             @map("rejection_reason") @db.Text
+  applicantType      String?             @map("applicant_type") @db.VarChar(20)
+  relatedCategory    String?             @map("related_category") @db.VarChar(100)
+  companyName        String?             @map("company_name") @db.VarChar(150)
   generatedEmail     String?             @map("generated_email") @db.VarChar(100)
   generatedPassword  String?             @map("generated_password") @db.VarChar(100)
   credentialsSentAt  DateTime?           @map("credentials_sent_at") @db.Timestamptz

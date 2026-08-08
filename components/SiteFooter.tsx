@@ -236,8 +236,22 @@ export default function SiteFooter() {
             </RevealItem>
           </RevealGroup>
 
-          <div className="flex justify-between border-t border-[#f0f0f0] pb-[10px] pt-[25px] text-[0.85rem] text-[#888] max-[480px]:flex-col max-[480px]:items-center max-[480px]:gap-[15px]">
+          <div className="flex flex-wrap items-center justify-between gap-[15px] border-t border-[#f0f0f0] pb-[10px] pt-[25px] text-[0.85rem] text-[#888] max-[480px]:flex-col max-[480px]:items-center">
             <span>All rights reserved. © 2026</span>
+            <span className="flex items-center gap-[15px]">
+              <Link
+                href="/privacy-policy"
+                className="no-underline transition-colors duration-200 hover:text-[#111827]"
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                href="/terms-of-service"
+                className="no-underline transition-colors duration-200 hover:text-[#111827]"
+              >
+                Terms of Service
+              </Link>
+            </span>
             <span>Part of AmanorX Holdings</span>
           </div>
         </div>

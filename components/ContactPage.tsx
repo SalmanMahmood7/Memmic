@@ -5,13 +5,37 @@ import { PAGE_HERO_IMAGES } from "@/data/images";
 import PageHeroBackground from "./PageHeroBackground";
 import Reveal from "./motion/Reveal";
 import { RevealGroup, RevealItem } from "./motion/RevealGroup";
+import { ApiError, sendGeneralClientMessage } from "@/lib/api";
+
+type Status = "idle" | "submitting" | "success" | "error";
 
 export default function ContactPage() {
-  const [submitted, setSubmitted] = useState(false);
+  const [status, setStatus] = useState<Status>("idle");
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSubmitted(true);
+    setStatus("submitting");
+    setError(null);
+
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    const full_name = String(data.get("name") ?? "").trim();
+    const email = String(data.get("email") ?? "").trim();
+    const brief = String(data.get("message") ?? "").trim();
+
+    try {
+      await sendGeneralClientMessage({ full_name, email, brief });
+      setStatus("success");
+      form.reset();
+    } catch (err) {
+      setStatus("error");
+      setError(
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again."
+      );
+    }
   }
 
   return (
@@ -42,7 +66,7 @@ export default function ContactPage() {
 
       <section className="border-t border-gray-100 pb-16 pt-16 sm:pb-20 sm:pt-20 lg:pb-24 lg:pt-24">
         <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
-          {submitted ? (
+          {status === "success" ? (
             <Reveal className="max-w-lg rounded-2xl border border-gray-200 p-8">
               <p className="text-[17px] font-semibold text-gray-900 sm:text-[18px]">
                 Thanks — message received.
@@ -66,6 +90,8 @@ export default function ContactPage() {
                     name="name"
                     type="text"
                     required
+                    minLength={5}
+                    maxLength={50}
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 text-[14px] text-gray-900 outline-none transition-colors duration-300 focus:border-gray-900 sm:text-[15px]"
                     placeholder="Your name"
                   />
@@ -99,18 +125,27 @@ export default function ContactPage() {
                     id="message"
                     name="message"
                     required
+                    minLength={8}
+                    maxLength={500}
                     rows={5}
                     className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-[14px] text-gray-900 outline-none transition-colors duration-300 focus:border-gray-900 sm:text-[15px]"
                     placeholder="Tell us a bit about your project"
                   />
                 </RevealItem>
 
+                {status === "error" && error && (
+                  <RevealItem>
+                    <p className="text-[13px] text-red-600 sm:text-[14px]">{error}</p>
+                  </RevealItem>
+                )}
+
                 <RevealItem>
                   <button
                     type="submit"
-                    className="rounded-full bg-[#111827] px-6 py-3 text-[13px] font-medium text-white transition-colors duration-300 hover:bg-[#1f2937] sm:text-[14px]"
+                    disabled={status === "submitting"}
+                    className="rounded-full bg-[#111827] px-6 py-3 text-[13px] font-medium text-white transition-colors duration-300 hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:opacity-60 sm:text-[14px]"
                   >
-                    Send message
+                    {status === "submitting" ? "Sending…" : "Send message"}
                   </button>
                 </RevealItem>
               </form>

@@ -5,10 +5,8 @@ import LinkIcon from "@/icons/LinkIcon";
 import Reveal from "./motion/Reveal";
 import { RevealGroup, RevealItem } from "./motion/RevealGroup";
 
-const ILHAM_IMAGE =
-  "https://images.unsplash.com/photo-1632187981988-40f3cbaeef5e?auto=format&fit=crop&w=1200&q=80";
-const VIRTULEE_IMAGE =
-  "https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?auto=format&fit=crop&w=1200&q=80";
+const ILHAM_IMAGE = "/images/case-study-1.jpg";
+const VIRTULEE_IMAGE = "/images/case-study-2.jpg";
 
 export default function CaseStudies() {
   return (

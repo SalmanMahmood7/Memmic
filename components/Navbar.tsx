@@ -65,29 +65,46 @@ export default function Navbar() {
               MEMMIC
             </Link>
             <div className="hidden items-center gap-6 md:flex">
-              {NAV_LINKS.map((link) =>
-                link.children ? (
+              {NAV_LINKS.map((link) => {
+                const isParentActive = link.children
+                  ? pathname === link.to ||
+                    pathname.startsWith(`${link.to}/`)
+                  : pathname === link.to;
+
+                return link.children ? (
                   <div key={link.label} className="group relative">
                     <Link
                       href={link.to}
-                      className="flex items-center gap-1 text-[14px] text-gray-900 transition-colors duration-300 hover:text-gray-500"
+                      className={`relative flex items-center gap-1 text-[14px] transition-colors duration-300 ${
+                        isParentActive
+                          ? "text-gray-900"
+                          : "text-gray-900 hover:text-gray-500"
+                      }`}
                     >
                       {link.label}
                       <ChevronDown
                         size={14}
                         className="transition-transform duration-300 group-hover:rotate-180"
                       />
+                      {isParentActive && (
+                        <span className="absolute -bottom-1.5 left-0 h-1 w-1 rounded-full bg-gray-900" />
+                      )}
                     </Link>
 
                     <div className="invisible absolute left-1/2 top-full z-50 -translate-x-1/2 pt-3 opacity-0 transition-all duration-200 ease-out group-hover:visible group-hover:opacity-100">
                       <div className="w-60 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
                         {link.children.map((child) => {
                           const Icon = CHILD_ICONS[child.label];
+                          const isChildActive = pathname === child.to;
                           return (
                             <Link
                               key={child.label}
                               href={child.to}
-                              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] text-gray-700 transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900"
+                              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900 ${
+                                isChildActive
+                                  ? "bg-gray-50 text-gray-900"
+                                  : "text-gray-700"
+                              }`}
                             >
                               {Icon && (
                                 <Icon
@@ -107,12 +124,19 @@ export default function Navbar() {
                   <Link
                     key={link.label}
                     href={link.to}
-                    className="text-[14px] text-gray-900 transition-colors duration-300 hover:text-gray-500"
+                    className={`relative text-[14px] transition-colors duration-300 ${
+                      isParentActive
+                        ? "text-gray-900"
+                        : "text-gray-900 hover:text-gray-500"
+                    }`}
                   >
                     {link.label}
+                    {isParentActive && (
+                      <span className="absolute -bottom-1.5 left-0 h-1 w-1 rounded-full bg-gray-900" />
+                    )}
                   </Link>
-                ),
-              )}
+                );
+              })}
             </div>
           </div>
 

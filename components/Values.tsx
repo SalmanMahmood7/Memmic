@@ -10,8 +10,7 @@ import { RevealGroup, RevealItem } from "./motion/RevealGroup";
 
 const VALUE_ICONS = [ShieldCheck, Wand2, ClipboardCheck];
 
-const BACKGROUND_IMAGE =
-  "https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260516_090133_c157d30b-a99a-4477-bec1-a446149ec3f2.png&w=1280&q=85";
+const BACKGROUND_IMAGE = "/images/about-work-large.webp";
 
 export default function Values() {
   const sectionRef = useRef<HTMLElement>(null);

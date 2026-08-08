@@ -84,6 +84,7 @@ export default function Hero() {
           className="mt-8 flex flex-col gap-4 sm:mt-12 sm:flex-row sm:items-center sm:gap-5"
         >
           <RollButton
+            to="/contact"
             label="Start a project"
             buttonClassName="bg-[#111827] hover:bg-[#1f2937] text-white text-[13px] sm:text-[14px] font-medium rounded-full pl-5 sm:pl-6 pr-2 py-2 gap-10 sm:gap-14"
             circleClassName="bg-white w-7 h-7 sm:w-8 sm:h-8"

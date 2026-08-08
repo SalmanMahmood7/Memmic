@@ -245,6 +245,13 @@ export function getUserProfile(token: string){
   return request<UserMe>('/admin/me', { method: 'GET' }, token);
 }
 
+export function updateAdminProfile(
+  token: string,
+  payload: { full_name?: string; email?: string; password?: string }
+) {
+  return request<UserMe>('/admin/me', { method: 'PATCH', body: JSON.stringify(payload) }, token);
+}
+
 
 export interface EnquiryCategory {
   id: string;
@@ -258,11 +265,16 @@ export function fetchAllEnquiryCategories(){
   return request<EnquiryCategory[]>('/admin/enquiry-categories/user', {method: 'GET'})
 }
 
+export type ApplicantType = "COMPANY" | "INDIVIDUAL" | "INVESTOR" | "OTHER";
+
 export interface EnquirySubmission {
   full_name: string;
   email: string;
   category_id: string;
   brief: string;
+  applicant_type: ApplicantType;
+  related_category: string;
+  company_name: string;
 }
 
 export function submitEnquiry(payload: EnquirySubmission){
@@ -315,6 +327,9 @@ export interface ClientMessageRecord {
   email: string;
   category_id: string;
   brief: string;
+  applicant_type: ApplicantType | null;
+  related_category: string | null;
+  company_name: string | null;
   status: "pending" | "approved" | "rejected";
   is_read?: boolean;
   approved_at: string | null;
@@ -356,6 +371,26 @@ export function approveClientMessage(token: string, messageId: string, sendCrede
   return request<ClientMessageRecord>(
     `/admin/client-messages/${messageId}/approve`,
     { method: "POST", body: JSON.stringify({ send_credentials: sendCredentials }) },
+    token
+  );
+}
+
+export function updateClientMessageCredentials(
+  token: string,
+  messageId: string,
+  payload: { email?: string; password?: string }
+) {
+  return request<ClientMessageRecord>(
+    `/admin/client-messages/${messageId}/credentials`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+    token
+  );
+}
+
+export function sendClientMessageCredentials(token: string, messageId: string) {
+  return request<ClientMessageRecord>(
+    `/admin/client-messages/${messageId}/send-credentials`,
+    { method: "POST" },
     token
   );
 }

@@ -62,11 +62,11 @@ export const NAV_DATA_ADMIN: NavSection[] = [
       //   icon: Icons.FourCircle,
       //   url: "/admin/system-logs"
       // },
-      // {
-      //   title: "Settings",
-      //   icon: Icons.Authentication,
-      //   url: "/admin/settings"
-      // }
+      {
+        title: "Settings",
+        icon: Icons.Authentication,
+        url: "/admin/profile"
+      }
     ],
   },
 ];
